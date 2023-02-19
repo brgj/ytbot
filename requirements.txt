@@ -1,0 +1,7 @@
+aiohttp
+aiosqlite
+discord
+pyyaml
+PyNaCl
+yt-dlp
+opuslib
