@@ -6,6 +6,8 @@ import platform
 import random
 import sys
 import discord
+import glob
+import hashlib
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
 
@@ -16,29 +18,52 @@ else:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
 # We only need messages and voice_states for this bot right now.
-# intents = discord.Intents(messages=True, voice_states=True)
+# intents = discord.Intents(messages=True, voice_states=True, guilds=True, integrations=True)
 intents = discord.Intents.default()
 
 # Create logger and add handler
 logger = logging.getLogger("ytbot")
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.StreamHandler())
+# logger.addHandler(logging.StreamHandler())
+fh = logging.FileHandler('ytbot.log')
+fmt = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+fh.setFormatter(fmt)
+fh.setLevel(logging.DEBUG)
+logger.addHandler(fh)
 
 # Create bot and add logger/config
 bot = Bot(command_prefix=commands.when_mentioned, intents=intents, help_command=None, case_insensitive=True)
 bot.logger = logger
 bot.config = config
+bot.yt_player = None
+
+
+def get_proj_hash() -> str:
+    filenames = glob.glob("**[!venv]/*.py", recursive=True)
+    filenames += glob.glob("*.py")
+    filenames += glob.glob("*.yaml")
+    md5 = hashlib.md5()
+
+    for filename in filenames:
+        with open(filename, 'rb') as inputfile:
+            data = inputfile.read()
+            md5.update(data)
+
+    return md5.hexdigest()
+
 
 """
 Executes when the bot is ready
 """
 @bot.event
 async def on_ready() -> None:
+    bot.logger.debug("-------------------")
+    bot.logger.debug(f"project hash: {get_proj_hash()}")
+    bot.logger.debug("-------------------")
     bot.logger.info(f"Logged in as {bot.user.name}")
     bot.logger.info(f"discord.py API version: {discord.__version__}")
     bot.logger.info(f"Python version: {platform.python_version()}")
-    bot.logger.info(
-        f"Running on: {platform.system()} {platform.release()} ({os.name})")
+    bot.logger.info(f"Running on: {platform.system()} {platform.release()} ({os.name})")
     bot.logger.info("-------------------")
     status_task.start()
     await bot.tree.sync()
@@ -138,7 +163,6 @@ Executes every time a message is sent
 """
 @bot.event
 async def on_message(message: discord.Message) -> None:
-
     if message.author == bot.user or message.author.bot:
         return
     await bot.process_commands(message)
@@ -152,7 +176,6 @@ async def on_command_completion(context: Context) -> None:
     split = full_command_name.split(" ")
     executed_command = str(split[0])
     bot.logger.info(f"Executed {executed_command} command")
-
 
 """
 Executes every time a command throws an error

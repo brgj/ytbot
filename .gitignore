@@ -3,3 +3,5 @@ song.mp3
 .idea
 *.iml
 fly.toml
+__pycache__
+*.log
