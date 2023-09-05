@@ -23,9 +23,9 @@ intents = discord.Intents.default()
 
 # Create logger and add handler
 logger = logging.getLogger("ytbot")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(config.get("log_level") or logging.DEBUG)
 # logger.addHandler(logging.StreamHandler())
-fh = logging.FileHandler('ytbot.log')
+fh = logging.FileHandler(config.get("logfile") or 'ytbot.log')
 fmt = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 fh.setFormatter(fmt)
 fh.setLevel(logging.DEBUG)

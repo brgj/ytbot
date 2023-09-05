@@ -1,7 +1,4 @@
-aiohttp
-aiosqlite
-discord
-pyyaml
-PyNaCl
-yt-dlp
-opuslib
+discord.py==2.3.2
+PyYAML==6.0.1
+validators==0.20.0
+yt_dlp==2023.2.17

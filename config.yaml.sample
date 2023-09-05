@@ -1,3 +1,8 @@
+# REQUIRED
 token: "BOT_TOKEN"
 permissions: "BOT_PERMISSIONS"
 application_id: "APPLICATION_ID"
+
+# OPTIONAL
+log_level: "INFO"
+logfile: "ytbot.log"

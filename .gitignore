@@ -5,3 +5,4 @@ song.mp3
 fly.toml
 __pycache__
 *.log
+.DS_Store

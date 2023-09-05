@@ -1,3 +1,5 @@
+import threading
+
 import discord
 import platform
 import os
@@ -93,8 +95,9 @@ class Debug(commands.Cog, name="debug"):
             color=0x8D72E3
         )
         self.bot.channel = channel
-        await channel.connect()
         await context.send(embed=embed)
+        vc = await channel.connect()
+        vc.play(discord.FFmpegPCMAudio(source="/Users/bradgj/Downloads/file_example_MP3_700KB.mp3"))
 
     @commands.hybrid_command(
         name="leave",
@@ -106,7 +109,7 @@ class Debug(commands.Cog, name="debug"):
             description=f"Leaving {self.bot.channel}",
             color=0x8D72E3
         )
-        await context.voice_client.disconnect()
+        await context.voice_client.disconnect(force=True)
         await context.send(embed=embed)
 
 
