@@ -1,5 +1,4 @@
 import asyncio
-import itertools
 import threading
 
 import validators
@@ -67,8 +66,7 @@ class YtPlayer(yt_dlp.YoutubeDL):
     async def __try_join_channel(self, vc):
         if len(self._queue) == 0:
             raise EmptyQueueException("unable to join channel when queue is empty!")
-        self._voice_channel = vc
-        await vc.connect()
+        self._voice_channel = await vc.connect()
         self._state = State.RUNNING
         await self.next()
         return True
@@ -102,6 +100,9 @@ class YtPlayer(yt_dlp.YoutubeDL):
             raise InvalidStateException(expected=[State.NOT_STARTED, State.RUNNING], actual=self._state)
 
         title, songs = self.__extract_songs(query)
+
+        for song in songs:
+            insert_func(song)
 
         if self._state is State.RUNNING and self._curr is None:
             await self.next()
@@ -144,6 +145,7 @@ class YtPlayer(yt_dlp.YoutubeDL):
 
             to_run = partial(self.extract_info, url=next_song['webpage_url'], download=False)
             self._curr = await loop.run_in_executor(None, to_run)
+            # TODO: This self.next call is async and doesn't work when passed as a param that expects a sync call
             self._voice_channel.play(discord.FFmpegPCMAudio(self._curr['url']), after=self.next)
             self._voice_channel.source.volume = 0.5
         except Exception as err:
