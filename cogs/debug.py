@@ -84,7 +84,7 @@ class Debug(commands.Cog, name="debug"):
         await context.send(embed=embed)
 
     @commands.hybrid_command(
-        name="join",
+        name="testjoin",
         description="Join the user's voice channel"
     )
     async def join(self, context: Context) -> None:

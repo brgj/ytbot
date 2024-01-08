@@ -5,14 +5,15 @@ import validators
 import re
 
 import discord
-import yt_dlp
 from typing import Optional
 from threading import Lock
 from functools import reduce, partial
 from enum import Enum
 from collections.abc import Generator
+from async_timeout import timeout
 
 import util
+from yt_dl_source import YTDLSource
 
 
 class State(Enum):
@@ -35,28 +36,64 @@ class EmptyQueueException(Exception):
 
 
 # The player will disconnect from the voice channel when the queue is exhausted
-class YtPlayer(yt_dlp.YoutubeDL):
+class YtPlayer:
     __yt_regex = r"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube(-nocookie)?\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$"
 
-    def __init__(self, logger):
-        ytdl_opts = {
-            "format": "bestaudio/best",
-            "postprocessors": [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192"
-            }]
-        }
-        super().__init__(ytdl_opts)
-        self._curr: Optional[tuple[str, dict]] = None
-        self._queue: dict[str, dict] = {}
-        self._voice_channel = None
-        self._state = State.NOT_STARTED
-        self._lock = Lock()
+    def __init__(self, ctx, logger):
+        self.bot = ctx.bot
+        self._guild = ctx.guild
+        self._channel = ctx.channel
+        self._cog = ctx.cog
         self._logger = logger
 
-    async def get_state(self):
-        return self._state
+        self.queue = asyncio.Queue()
+        self.next = asyncio.Event()
+
+        self.np = None  # Now playing message
+        self.volume = .5
+        self.current = None
+
+        ctx.bot.loop.create_task(self.player_loop())
+
+    async def player_loop(self):
+        """Our main player loop."""
+        await self.bot.wait_until_ready()
+
+        while not self.bot.is_closed():
+            self.next.clear()
+
+            try:
+                # Wait for the next song. If we timeout cancel the player and disconnect...
+                async with timeout(300):  # 5 minutes...
+                    source = await self.queue.get()
+            except asyncio.TimeoutError:
+                return self.destroy(self._guild)
+
+            if not isinstance(source, YTDLSource):
+                # Source was probably a stream (not downloaded)
+                # So we should regather to prevent stream expiration
+                try:
+                    source = await YTDLSource.regather_stream(source, loop=self.bot.loop)
+                except Exception as e:
+                    await self._channel.send(f'There was an error processing your song.\n'
+                                             f'```css\n[{e}]\n```')
+                    continue
+
+            source.volume = self.volume
+            self.current = source
+
+            self._guild.voice_client.play(source, after=lambda _: self.bot.loop.call_soon_threadsafe(self.next.set))
+            embed = discord.Embed(title="Now playing", description=f"[{source.title}]({source.web_url}) [{source.requester.mention}]", color=discord.Color.green())
+            self.np = await self._channel.send(embed=embed)
+            await self.next.wait()
+
+            # Make sure the FFmpeg process is cleaned up.
+            source.cleanup()
+            self.current = None
+
+    def destroy(self, guild):
+        """Disconnect and cleanup the player."""
+        return self.bot.loop.create_task(self._cog.cleanup(guild))
 
     async def join_channel(self, vc):
         if self._state is not State.NOT_STARTED:
@@ -132,6 +169,11 @@ class YtPlayer(yt_dlp.YoutubeDL):
         with self._lock:
             return key, self._queue.pop(key)
 
+    # TODO: Instead of a next call, I should have a main async loop that runs in an executor
+    # TODO: I should be putting in an async event lock that waits for the 'play' call to finish. Put it in `after`.
+    # TODO: I should be popping the queue at the beginning of the loop and then processing and regathering the stream.
+    # TODO: I should add 'guild' to the params that are used in order to allow this to exist in separate discords
+    # TODO: I don't think that I need a state at all. I could just use the main loop.
     async def next(self, error=None):
         next_song = None
         if self._state is not State.RUNNING:

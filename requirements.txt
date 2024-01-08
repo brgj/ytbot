@@ -1,4 +1,6 @@
+async_timeout==4.0.3
 discord.py==2.3.2
+nest_asyncio==1.5.8
 PyYAML==6.0.1
 validators==0.20.0
-yt_dlp==2023.07.06
+yt_dlp==2023.7.6

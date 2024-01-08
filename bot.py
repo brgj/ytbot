@@ -8,6 +8,7 @@ import sys
 import discord
 import glob
 import hashlib
+import nest_asyncio
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
 
@@ -227,6 +228,6 @@ async def load_cogs() -> None:
                 bot.logger.error(
                     f"Failed to load extension {extension}\n{exception}")
 
-
+nest_asyncio.apply()
 asyncio.run(load_cogs())
 bot.run(config["token"])
